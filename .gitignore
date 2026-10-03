@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Base de datos local de desarrollo de Django
+db.sqlite3
+
+# Archivos de configuración del entorno de desarrollo de VS Code
+.vscode/
+
+# Archivos multimedia subidos por usuarios durante las pruebas locales (opcional pero recomendado)
+media/
