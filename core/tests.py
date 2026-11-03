@@ -383,3 +383,47 @@ class SalesRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors)
         self.assertFalse(Sale.objects.exists())
+
+
+class NotificationsTests(TestCase):
+    def setUp(self):
+        category = Category.objects.create(name="Comida", slug="comida")
+        product_type = Type.objects.create(
+            name="Carne",
+            slug="comida-carne",
+            category=category,
+        )
+        self.product = Element.objects.create(
+            name="Bife",
+            slug="bife",
+            quantity=1,
+            min_quantity=2,
+            category=category,
+            type=product_type,
+        )
+
+    def test_base_shows_low_stock_and_recent_sale_notifications(self):
+        Sale.objects.create(
+            date=timezone.localdate(),
+            element=self.product,
+            quantity=1,
+        )
+
+        response = self.client.get(reverse("index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["notification_count"], 2)
+        self.assertContains(response, "Stock bajo")
+        self.assertContains(response, "Venta registrada")
+        self.assertContains(response, "Bife")
+
+    def test_base_shows_empty_state_when_there_are_no_notifications(self):
+        self.product.quantity = 5
+        self.product.min_quantity = 2
+        self.product.save()
+
+        response = self.client.get(reverse("index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["notification_count"], 0)
+        self.assertContains(response, "No tienes notificaciones.")

@@ -1,17 +1,51 @@
+from django.db.models import F
+from django.urls import reverse
+
 from .models import Element, Sale
 
-message1="{product_name} está por acabarse. Solo quedan {quantity} unidades en stock."
-message2="{product_name} se ha agotado. No hay unidades disponibles en stock."
-message3="Se ha registrado una venta de {quantity} unidades de {product_name}."
 
-for sale in Sale.objects.select_related("element").order_by("-date", "-id"):
-    product = sale.element
-    if product.quantity <= product.min_quantity:
+def notification_context(request):
+    notifications = []
+
+    products_with_low_stock = Element.objects.filter(
+        quantity__lte=F("min_quantity")
+    ).order_by("quantity", "name")
+    for product in products_with_low_stock:
         if product.quantity == 0:
-            message = message2.format(product_name=product.name)
+            title = "Producto agotado"
+            message = f"{product.name} no tiene unidades disponibles."
         else:
-            message = message1.format(product_name=product.name, quantity=product.quantity)
-        print(message)  
+            title = "Stock bajo"
+            message = (
+                f"{product.name}: quedan {product.quantity} unidades "
+                f"(mínimo: {product.min_quantity})."
+            )
+        notifications.append(
+            {
+                "title": title,
+                "message": message,
+                "url": reverse("detail", args=[product.pk]),
+                "level": "warning",
+            }
+        )
 
-    sale_message = message3.format(quantity=sale.quantity, product_name=product.name)
-    print(sale_message) 
+    recent_sales = Sale.objects.select_related("element").order_by("-date", "-pk")[:5]
+    for sale in recent_sales:
+        unit_label = "unidad" if sale.quantity == 1 else "unidades"
+        notifications.append(
+            {
+                "title": "Venta registrada",
+                "message": (
+                    f"Se vendieron {sale.quantity} {unit_label} de "
+                    f"{sale.element.name}."
+                ),
+                "url": reverse("sales"),
+                "level": "sale",
+            }
+        )
+  
+
+    return {
+        "notifications": notifications,
+        "notification_count": len(notifications),
+    }
