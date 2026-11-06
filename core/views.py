@@ -20,7 +20,7 @@ def index(request):
         total=models.Sum(models.F("quantity") * models.F("element__price"))
     )["total"] or 0
     sales_quantity = Sale.objects.aggregate(total=models.Sum("quantity"))["total"] or 0
-    total_productos = Element.objects.filter(available=True, quantity__gt=0).count()
+    total_productos = Element.objects.filter(quantity__gt=0).count()
 
     return render(
         request,
@@ -47,6 +47,7 @@ def get_types(request):
         types = []
 
     return JsonResponse(types, safe=False)
+
 
 def inventory(request):
     elements = Element.objects.all().order_by('-id')

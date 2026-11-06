@@ -17,8 +17,8 @@
 
             <div class="card-body">
                 <p class="card-text">Precio: ${{ e.price }}</p>
-                <p class="card-text">Cantidad: {{ e.quantity }}</p>
-                <p class="card-text">Disponible: {% if e.available and e.quantity > 0 %}Sí{% else %}No{% endif %}</p>
+                <p class="card-text">Stock: {{ e.quantity }}</p>
+                <p class="card-text">Estado: {{ e.state }}</p>
                 <a href="{% url 'edit_product' e.id %}" class="btn btn-primary">Editar producto</a>
             </div>
         </div>

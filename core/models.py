@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 
 # Create your models here.
 class Category(models.Model):
@@ -17,41 +18,38 @@ class Type(models.Model):
     def __str__(self):
         return self.name
 
-class Distributor(models.Model):
-    name = models.CharField(max_length=255)
-    number = models.CharField(max_length=20, blank=True)
-    address = models.TextField(blank=True)
-    
 
-    class Meta:
-        verbose_name = "Distributor"
-        verbose_name_plural = "Distributors"
-
-    def __str__(self):
-        return self.name
+def mayor_a_cero(value):
+    if value <= 0:
+        raise ValidationError("El valor debe ser mayor a cero.")
 
 class Element(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
 
     description = models.TextField(blank=True)
-    content=models.TextField(blank=True)
-    price = models.PositiveIntegerField(default=0)
+    price = models.PositiveIntegerField(validators=[mayor_a_cero])
     quantity= models.PositiveIntegerField(default=0)
-    min_quantity= models.PositiveIntegerField(default=0)
-    available= models.BooleanField(default=True)
+    min_quantity= models.PositiveIntegerField(validators=[mayor_a_cero])
+    associated_min_percentage = models.DecimalField(max_digits=5, decimal_places=2, validators=[mayor_a_cero])
 
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     type= models.ForeignKey(Type, on_delete=models.CASCADE)
-    distributor = models.ForeignKey(Distributor, on_delete=models.CASCADE,default="",blank=True, null=True)
     prod_website = models.URLField(max_length=255, default='', blank=True, null=True)
     created= models.DateTimeField(auto_now_add=True)
     updated= models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
+    @property
+    def state(self):
         if self.quantity == 0:
-            self.available = False
-        super().save(*args, **kwargs)
+            return "Agotado"
+        if self.quantity < self.min_quantity:
+            return "Disponible - Stock bajo"
+        if (
+            self.associated_min_percentage > 0 and self.quantity > (100 * self.min_quantity) / self.associated_min_percentage
+        ):
+            return "Disponible - Stock alto"
+        return "Disponible"
 
     def __str__(self):
         return self.name

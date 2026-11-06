@@ -19,15 +19,6 @@
         {{ form.description }}</div>
 
         <div class="mb-3">
-        {{ form.content.label_tag }}
-        {{ form.content }}</div>
-
-        <div class="mb-3">
-        {{ form.available.label_tag }}
-        {{ form.available }}
-        </div>
-
-        <div class="mb-3">
         {{ form.price.label_tag }}
         {{ form.price }}</div>
 
@@ -84,8 +75,8 @@
         {{form.min_quantity}}</div>
 
         <div class="mb-3">
-        {{ form.distributor.label_tag }}
-        {{ form.distributor }}</div>
+        {{form.associated_min_percentage.label_tag}}
+        {{form.associated_min_percentage}}</div>
 
         <div class="mb-3">
         {{ form.prod_website.label_tag }}

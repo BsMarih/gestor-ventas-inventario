@@ -11,12 +11,10 @@ class CreateElementForm(forms.ModelForm):
         fields = [
             'name',
             'description',
-            'content',
             'price',
             'quantity',
             'min_quantity',
-            'available',
-            'distributor',
+            'associated_min_percentage',
             'prod_website',
         ]
 

@@ -16,6 +16,7 @@ class CreateElementTypeTests(TestCase):
                 "price": "10",
                 "quantity": "5",
                 "min_quantity": "1",
+                "associated_min_percentage": "50",
             },
         )
 
@@ -61,6 +62,9 @@ class InventoryPaginationTests(TestCase):
                 Element(
                     name=f"Producto {number}",
                     slug=f"producto-{number}",
+                    price=10,
+                    min_quantity=1,
+                    associated_min_percentage=50,
                     category=category,
                     type=product_type,
                 )
@@ -90,13 +94,53 @@ class InventoryPaginationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["elements"].number, 1)
 
-    def test_zero_stock_product_is_shown_as_unavailable_even_if_flag_is_stale(self):
-        element = Element.objects.first()
-        Element.objects.filter(pk=element.pk).update(available=True)
-
+    def test_zero_stock_product_is_shown_with_zero_stock(self):
         response = self.client.get(reverse("inventory"))
 
-        self.assertContains(response, "Disponible: No")
+        self.assertContains(response, "Stock: 0")
+
+
+class ProductStateTests(TestCase):
+    def setUp(self):
+        category = Category.objects.create(name="Comida", slug="comida")
+        product_type = Type.objects.create(
+            name="Carne",
+            slug="comida-carne",
+            category=category,
+        )
+        self.product = Element.objects.create(
+            name="Bife",
+            slug="bife",
+            price=10,
+            quantity=3,
+            min_quantity=3,
+            associated_min_percentage=50,
+            category=category,
+            type=product_type,
+        )
+
+    def test_state_reflects_stock_thresholds(self):
+        cases = [
+            (0, "Agotado"),
+            (2, "Disponible: Stock bajo"),
+            (3, "Disponible"),
+            (6, "Disponible"),
+            (7, "Disponible: Stock alto"),
+        ]
+
+        for quantity, expected_state in cases:
+            with self.subTest(quantity=quantity):
+                self.product.quantity = quantity
+                self.assertEqual(self.product.state, expected_state)
+
+    def test_zero_percentage_does_not_raise_division_error(self):
+        self.product.associated_min_percentage = 0
+        self.assertEqual(self.product.state, "Disponible")
+
+    def test_inventory_renders_calculated_product_state(self):
+        response = self.client.get(reverse("inventory"))
+
+        self.assertContains(response, "Estado: Disponible")
 
 
 class EditElementTests(TestCase):
@@ -110,6 +154,9 @@ class EditElementTests(TestCase):
         self.element = Element.objects.create(
             name="Bife",
             slug="bife",
+            price=10,
+            min_quantity=1,
+            associated_min_percentage=50,
             category=self.category,
             type=self.product_type,
         )
@@ -129,14 +176,12 @@ class EditElementTests(TestCase):
             {
                 "name": "Jugo",
                 "description": "Jugo natural",
-                "content": "1 litro",
                 "price": "25",
                 "quantity": "8",
                 "min_quantity": "2",
-                "available": "on",
+                "associated_min_percentage": "50",
                 "category": "Bebidas",
                 "type": "Jugo natural",
-                "distributor": "",
                 "prod_website": "",
             },
         )
@@ -166,7 +211,7 @@ class EditElementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors)
         self.element.refresh_from_db()
-        self.assertEqual(self.element.price, 0)
+        self.assertEqual(self.element.price, 10)
 
     def test_delete_action_removes_product_and_redirects_to_inventory(self):
         response = self.client.post(
@@ -248,14 +293,18 @@ class DashboardSalesMetricsTests(TestCase):
             slug="bife",
             price=10,
             quantity=1,
-            available=True,
+            min_quantity=1,
+            associated_min_percentage=50,
             category=category,
             type=product_type,
         )
         Element.objects.create(
             name="Producto inactivo",
             slug="producto-inactivo",
-            available=False,
+            price=10,
+            quantity=0,
+            min_quantity=1,
+            associated_min_percentage=50,
             category=category,
             type=product_type,
         )
@@ -283,7 +332,7 @@ class DashboardSalesMetricsTests(TestCase):
         self.assertEqual(response.context["sales_quantity"], 0)
         self.assertEqual(response.context["total_productos"], 0)
 
-    def test_dashboard_does_not_count_available_products_with_zero_stock(self):
+    def test_dashboard_does_not_count_products_with_zero_stock(self):
         Element.objects.filter(pk=self.active_element.pk).update(quantity=0)
 
         response = self.client.get(reverse("index"))
@@ -302,7 +351,10 @@ class SalesRegistrationTests(TestCase):
         self.element = Element.objects.create(
             name="Bife",
             slug="bife",
+            price=10,
             quantity=5,
+            min_quantity=1,
+            associated_min_percentage=50,
             category=category,
             type=product_type,
         )
@@ -329,7 +381,7 @@ class SalesRegistrationTests(TestCase):
         self.assertEqual(sale.element, self.element)
         self.assertEqual(sale.quantity, 2)
 
-    def test_selling_last_units_marks_product_unavailable(self):
+    def test_selling_last_units_sets_stock_to_zero(self):
         self.client.post(
             reverse("register_sales"),
             {
@@ -341,9 +393,8 @@ class SalesRegistrationTests(TestCase):
 
         self.element.refresh_from_db()
         self.assertEqual(self.element.quantity, 0)
-        self.assertFalse(self.element.available)
 
-    def test_sale_cannot_exceed_available_stock(self):
+    def test_sale_cannot_exceed_stock(self):
         response = self.client.post(
             reverse("register_sales"),
             {
