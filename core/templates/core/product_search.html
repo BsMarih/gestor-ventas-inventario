@@ -1,0 +1,14 @@
+<section class="product-search-section mb-4" aria-label="Buscar productos">
+    <form method="get" action="{% url 'product_search' %}" class="d-flex gap-2">
+        <label for="product-search" class="visually-hidden">Nombre, código de barras o categoría</label>
+        <input
+            id="product-search"
+            type="search"
+            name="q"
+            value="{{ product_query }}"
+            class="form-control"
+            placeholder="Nombre, código de barras o categoría"
+            aria-label="Buscar productos por nombre, código de barras o categoría">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+</section>

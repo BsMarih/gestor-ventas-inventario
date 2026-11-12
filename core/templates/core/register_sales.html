@@ -17,8 +17,33 @@
         </div>
 
         <div class="mb-3">
+            {{ form.barcode.label_tag }}
+            <div class="btn-group d-block mb-2" role="group" aria-label="Método de ingreso del código">
+                <button type="button" id="manual-barcode-button" class="btn btn-primary" aria-pressed="true">
+                    Escribir código
+                </button>
+                <button type="button" id="scan-barcode-button" class="btn btn-outline-primary" aria-pressed="false">
+                    Escanear con cámara
+                </button>
+            </div>
+            <div id="manual-barcode-option">
+                {{ form.barcode }}
+                <div class="form-text">Ingresa el código de un producto registrado en el inventario.</div>
+            </div>
+            <div id="camera-barcode-option" hidden>
+                <div id="sales-barcode-reader" class="mb-2" style="width: 500px; max-width: 100%;"></div>
+                <button type="button" id="stop-barcode-scan-button" class="btn btn-secondary">
+                    Cerrar escáner
+                </button>
+            </div>
+            <p id="sales-barcode-scan-status" role="status" aria-live="polite"></p>
+            {{ form.barcode.errors }}
+        </div>
+
+        <div class="mb-3">
             {{ form.associated_product.label_tag }}
             {{ form.associated_product }}
+            <div class="form-text">También puedes seleccionar el producto manualmente.</div>
             {{ form.associated_product.errors }}
         </div>
 
@@ -30,4 +55,92 @@
 
         <button type="submit" class="btn btn-primary">Registrar venta</button>
     </form>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+        const manualBarcodeOption = document.getElementById("manual-barcode-option");
+        const cameraBarcodeOption = document.getElementById("camera-barcode-option");
+        const manualBarcodeButton = document.getElementById("manual-barcode-button");
+        const scanBarcodeButton = document.getElementById("scan-barcode-button");
+        const stopBarcodeScanButton = document.getElementById("stop-barcode-scan-button");
+        const barcodeInput = document.getElementById("id_barcode");
+        const scanStatus = document.getElementById("sales-barcode-scan-status");
+        let barcodeScanner = null;
+
+        function showManualBarcodeOption() {
+            manualBarcodeOption.hidden = false;
+            cameraBarcodeOption.hidden = true;
+            manualBarcodeButton.classList.add("btn-primary");
+            manualBarcodeButton.classList.remove("btn-outline-primary");
+            manualBarcodeButton.setAttribute("aria-pressed", "true");
+            scanBarcodeButton.classList.remove("btn-primary");
+            scanBarcodeButton.classList.add("btn-outline-primary");
+            scanBarcodeButton.setAttribute("aria-pressed", "false");
+        }
+
+        function closeBarcodeScanner() {
+            if (!barcodeScanner) {
+                showManualBarcodeOption();
+                return;
+            }
+
+            const scannerToClose = barcodeScanner;
+            barcodeScanner = null;
+            scannerToClose.clear().then(function() {
+                document.getElementById("sales-barcode-reader").replaceChildren();
+                showManualBarcodeOption();
+            }).catch(function() {
+                scanStatus.textContent = "No se pudo cerrar el escáner. Revisa los permisos de la cámara e inténtalo de nuevo.";
+            });
+        }
+
+        manualBarcodeButton.addEventListener("click", closeBarcodeScanner);
+        stopBarcodeScanButton.addEventListener("click", closeBarcodeScanner);
+
+        scanBarcodeButton.addEventListener("click", function() {
+            manualBarcodeOption.hidden = true;
+            cameraBarcodeOption.hidden = false;
+            manualBarcodeButton.classList.remove("btn-primary");
+            manualBarcodeButton.classList.add("btn-outline-primary");
+            manualBarcodeButton.setAttribute("aria-pressed", "false");
+            scanBarcodeButton.classList.add("btn-primary");
+            scanBarcodeButton.classList.remove("btn-outline-primary");
+            scanBarcodeButton.setAttribute("aria-pressed", "true");
+            scanStatus.textContent = "";
+
+            if (!window.isSecureContext) {
+                scanStatus.textContent = "La cámara requiere una conexión segura (HTTPS) o localhost.";
+                return;
+            }
+            if (typeof Html5QrcodeScanner === "undefined") {
+                scanStatus.textContent = "No se pudo cargar el lector. Usa la opción para escribir el código.";
+                return;
+            }
+            if (barcodeScanner) {
+                return;
+            }
+
+            barcodeScanner = new Html5QrcodeScanner(
+                "sales-barcode-reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 300, height: 150 },
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E,
+                        Html5QrcodeSupportedFormats.ITF
+                    ]
+                },
+                false
+            );
+            barcodeScanner.render(function(decodedText) {
+                barcodeInput.value = decodedText;
+                scanStatus.textContent = "Código leído. Verifica el producto y registra la venta.";
+                barcodeInput.dispatchEvent(new Event("input", { bubbles: true }));
+                closeBarcodeScanner();
+            }, function() {});
+        });
+    </script>
 {% endblock %}

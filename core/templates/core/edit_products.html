@@ -23,6 +23,12 @@
         </div>
 
         <div class="mb-3">
+            {{ form.barcode.label_tag }}
+            {{ form.barcode }}
+            {{ form.barcode.errors }}
+        </div>
+
+        <div class="mb-3">
             {{ form.price.label_tag }}
             {{ form.price }}
             {{ form.price.errors }}

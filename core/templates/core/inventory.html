@@ -8,6 +8,7 @@
     <h1>Inventario</h1>
     <p>Gestiona existencias, precios y disponibilidad.</p>
     <a href="{% url 'create_element' %}" class="btn btn-success mb-3">Registra un nuevo producto</a>
+    <a href="{% url 'product_scan' %}" class="btn btn-outline-primary mb-3">Escanear código de barras</a>
 
     {% for e in elements %}
         <div class="card mb-3">

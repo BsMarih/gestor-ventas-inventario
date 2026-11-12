@@ -4,9 +4,38 @@
 
 {% block content %}
     <h1>Lista Priorizada</h1>
-    <p>Revisa qué productos debes renovar</p>
+    <p>Revisa los productos con stock bajo o que podrían agotarse antes de la próxima reposición.</p>
+    <p>Las estimaciones usan las ventas registradas desde la primera venta de cada producto.</p>
 
-    <div class="row"></div>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success" role="status">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if replenishment_settings %}
+        <p>Período de reposición configurado: cada {{ replenishment_settings.replenishment_days }} días.</p>
+        <details>
+            <summary>Cambiar período de reposición</summary>
+    {% else %}
+        <p>Indica cada cuántos días repones el inventario para activar las predicciones.</p>
+        <details open>
+            <summary>Configurar período de reposición</summary>
+    {% endif %}
+            <form method="post" class="my-3">
+                {% csrf_token %}
+                {{ settings_form.non_field_errors }}
+                <div class="mb-3">
+                    {{ settings_form.replenishment_days.label_tag }}
+                    {{ settings_form.replenishment_days }}
+                    {{ settings_form.replenishment_days.help_text }}
+                    {{ settings_form.replenishment_days.errors }}
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar período</button>
+            </form>
+        </details>
+
+    <div class="row">
         {% for e in elements %}
             <div class="col-md-4 mb-3">
                 <div class="card">
@@ -14,6 +43,27 @@
                         <h5 class="card-title">{{ e.name }}</h5>
                         <p class="card-text">Cantidad: {{ e.quantity }}</p>
                         <p class="card-text">Mínimo: {{ e.min_quantity }}</p>
+                        {% if e.has_sales_history %}
+                            <p class="card-text">
+                                Frecuencia promedio de compra: cada
+                                {{ e.average_days_between_sales|floatformat:1 }} días.
+                            </p>
+                            <p class="card-text">
+                                Consumo promedio: {{ e.average_daily_sales|floatformat:2 }} unidades al día.
+                            </p>
+                            {% if e.has_sales_rate %}
+                                <p class="card-text">
+                                    Stock estimado para {{ e.days_until_stockout|floatformat:1 }} días.
+                                </p>
+                                {% if e.predicted_stockout %}
+                                    <p class="card-text text-danger">
+                                        Podría agotarse antes de la próxima reposición.
+                                    </p>
+                                {% endif %}
+                            {% endif %}
+                        {% else %}
+                            <p class="card-text">Sin historial de ventas para estimar el agotamiento.</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>

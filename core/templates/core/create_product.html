@@ -6,21 +6,32 @@
 
 {% block content %}
     <h1>Registra un nuevo producto</h1>
+    {% if scan_message %}
+        <div class="alert alert-info" role="status">{{ scan_message }} Revisa o completa los datos antes de guardar.</div>
+    {% endif %}
     <form method="post" action="{% url 'create_element' %}">
         {% csrf_token %}
 
         <div class="mb-3">
         {{ form.name.label_tag }}
         {{ form.name }}
+        {{ form.name.errors }}
         </div>
 
         <div class="mb-3">
         {{ form.description.label_tag }}
-        {{ form.description }}</div>
+        {{ form.description }}
+        {{ form.description.errors }}</div>
+
+        <div class="mb-3">
+        {{ form.barcode.label_tag }}
+        {{ form.barcode }}
+        {{ form.barcode.errors }}</div>
 
         <div class="mb-3">
         {{ form.price.label_tag }}
-        {{ form.price }}</div>
+        {{ form.price }}
+        {{ form.price.errors }}</div>
 
         <div class="mb-3">
         <label>Categoría</label>
@@ -68,19 +79,23 @@
 
         <div class="mb-3">
         {{ form.quantity.label_tag }}
-        {{ form.quantity }}</div>
+        {{ form.quantity }}
+        {{ form.quantity.errors }}</div>
 
         <div class="mb-3">
         {{form.min_quantity.label_tag}}
-        {{form.min_quantity}}</div>
+        {{form.min_quantity}}
+        {{form.min_quantity.errors}}</div>
 
         <div class="mb-3">
         {{form.associated_min_percentage.label_tag}}
-        {{form.associated_min_percentage}}</div>
+        {{form.associated_min_percentage}}
+        {{form.associated_min_percentage.errors}}</div>
 
         <div class="mb-3">
         {{ form.prod_website.label_tag }}
-        {{ form.prod_website }}</div>
+        {{ form.prod_website }}
+        {{ form.prod_website.errors }}</div>
 
         <button type="submit" class="btn btn-primary">Crear</button>
         

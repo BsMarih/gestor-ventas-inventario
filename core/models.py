@@ -28,6 +28,7 @@ class Element(models.Model):
     slug = models.SlugField(max_length=255, unique=True)
 
     description = models.TextField(blank=True)
+    barcode = models.CharField(max_length=50, blank=True, default="", db_index=True)
     price = models.PositiveIntegerField(validators=[mayor_a_cero])
     quantity= models.PositiveIntegerField(default=0)
     min_quantity= models.PositiveIntegerField(validators=[mayor_a_cero])
@@ -58,6 +59,18 @@ class Sale(models.Model):
     date = models.DateField()
     element = models.ForeignKey(Element, on_delete=models.CASCADE, related_name="sales")
     quantity = models.PositiveIntegerField()
+    repositiondays = models.PositiveIntegerField(
+        validators=[mayor_a_cero],
+        blank=True,
+        null=True,
+    )
 
     def __str__(self):
         return f"Venta #{self.pk}"
+
+
+class InventorySettings(models.Model):
+    replenishment_days = models.PositiveIntegerField(validators=[mayor_a_cero])
+
+    def __str__(self):
+        return f"Reposición cada {self.replenishment_days} días"

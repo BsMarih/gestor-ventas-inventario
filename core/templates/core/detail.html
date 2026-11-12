@@ -6,11 +6,38 @@
 
 {% block content %}
     <h1>{{ element.title }}</h1>
-    <p><strong>Nombre:</strong> {{ element.name }}</p>
+    <p><strong>Nombre de artículo:</strong> {{ element.name }}</p>
     <p><strong>Descripción:</strong> {{ element.description }}</p>
+    {% if element.barcode %}<p><strong>Código de barras:</strong> {{ element.barcode }}</p>{% endif %}
     <p><strong>Precio:</strong> ${{ element.price }}</p>
     <p><strong>Cantidad en Inventario:</strong> {{ element.quantity }}</p>
-    <p><strong>Sitio Web del Producto:</strong> <a href="{{ element.prod_website }}" target="_blank">{{ element.prod_website }}</a></p>
+    <p><strong>Link del producto:</strong> <a href="{{ element.prod_website }}" target="_blank">{{ element.prod_website }}</a></p>
+
+    <section class="mt-4" aria-labelledby="recent-sales-heading">
+        <h2 id="recent-sales-heading">Ventas más recientes</h2>
+        {% if recent_sales %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Fecha</th>
+                            <th scope="col">Cantidad vendida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sale in recent_sales %}
+                            <tr>
+                                <td>{{ sale.date|date:"d/m/Y" }}</td>
+                                <td>{{ sale.quantity }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>Aún no hay ventas registradas para este artículo.</p>
+        {% endif %}
+    </section>
 
     <a href="{% url 'inventory' %}">Volver al Inventario</a>
 {% endblock %}

@@ -67,6 +67,9 @@
     </aside>
 
     <main style="margin-left: 250px; padding: 20px;">
+        {% if product_search_enabled %}
+            {% include "core/product_search.html" %}
+        {% endif %}
         {% block content %}
         {% endblock %}
     </main>

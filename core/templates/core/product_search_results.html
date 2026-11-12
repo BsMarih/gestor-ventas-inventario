@@ -1,0 +1,23 @@
+{% extends "core/base.html" %}
+
+{% block title %}Resultados de búsqueda{% endblock %}
+{% block content %}
+    <h1>Resultados de búsqueda</h1>
+    {% if product_query %}
+        <p>Resultados para “{{ product_query }}”</p>
+        {% if search_results %}
+            <ul class="list-group">
+                {% for product in search_results %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'detail' product.id %}">{{ product.name }}</a>
+                        <span>{{ product.category.name }} · Stock: {{ product.quantity }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No se encontraron productos para “{{ product_query }}”.</p>
+        {% endif %}
+    {% else %}
+        <p>Ingresa un nombre, código de barras, descripción, categoría o tipo para buscar.</p>
+    {% endif %}
+{% endblock %}

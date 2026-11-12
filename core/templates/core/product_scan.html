@@ -1,0 +1,53 @@
+{% extends "core/base.html" %}
+
+{% block title %}Escanear producto{% endblock %}
+{% block nav_inventory %}active{% endblock %}
+
+{% block content %}
+    <h1>Escáner de productos</h1>
+    <p>Escanea un código EAN o UPC. Después podrás revisar y editar los datos antes de guardar.</p>
+    <div id="reader" class="mb-3" style="width: 500px; max-width: 100%;"></div>
+    <p id="scan-result" role="status" aria-live="polite"></p>
+    <p class="text-muted">El acceso a la cámara requiere HTTPS o abrir el sitio desde localhost.</p>
+    <a href="{% url 'create_element' %}" class="btn btn-secondary">Registrar manualmente</a>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+        const result = document.getElementById("scan-result");
+        const createProductUrl = "{% url 'create_element' %}";
+
+        if (!window.isSecureContext) {
+            result.textContent = "La cámara requiere una conexión segura (HTTPS) o localhost.";
+        } else if (typeof Html5QrcodeScanner === "undefined") {
+            result.textContent = "No se pudo cargar el lector de códigos. Intenta de nuevo o registra el producto manualmente.";
+        } else {
+            let scanned = false;
+            const scanner = new Html5QrcodeScanner(
+                "reader",
+                {
+                    fps: 10,
+                    qrbox: { width: 300, height: 150 },
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E,
+                        Html5QrcodeSupportedFormats.ITF
+                    ]
+                },
+                false
+            );
+
+            scanner.render(function(decodedText) {
+                if (scanned) {
+                    return;
+                }
+                scanned = true;
+                result.textContent = "Código detectado. Buscando el producto…";
+                const url = new URL(createProductUrl, window.location.origin);
+                url.searchParams.set("barcode", decodedText);
+                window.location.assign(url.toString());
+            }, function() {});
+        }
+    </script>
+{% endblock %}
