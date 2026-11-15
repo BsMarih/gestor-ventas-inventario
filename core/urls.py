@@ -1,8 +1,31 @@
 from django.urls import path
 from django.core.paginator import Paginator
+from django.contrib.auth import views as auth_views
+from .forms import LoginForm
 from . import views
 
 urlpatterns = [
+    path(
+        "login/",
+        auth_views.LoginView.as_view(
+            template_name="core/login.html",
+            authentication_form=LoginForm,
+            redirect_authenticated_user=True,
+            next_page="index",
+        ),
+        name="login",
+    ),
+    path(
+        "logout/",
+        auth_views.LogoutView.as_view(next_page="login"),
+        name="logout",
+    ),
+    path("register/", views.register_account, name="register_account"),
+    path(
+        "notifications/dismiss/",
+        views.dismiss_notification,
+        name="dismiss_notification",
+    ),
     path('', views.index, name='index'),
     path('search/', views.product_search, name='product_search'),
     path('sales/', views.sales, name='sales'),

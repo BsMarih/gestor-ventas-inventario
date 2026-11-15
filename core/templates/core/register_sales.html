@@ -5,56 +5,68 @@
 {% block nav_register_sales %}active{% endblock %}
 
 {% block content %}
-    <h1>Registrar venta</h1>
-    <form method="post" action="{% url 'register_sales' %}">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
+    <div class="workflow-page">
+        <section class="workflow-card workflow-card-sales" aria-labelledby="register-sale-title">
+            <header class="workflow-header">
+                <div>
+                    <h1 id="register-sale-title">Registrar venta</h1>
+                    <p>Completa los datos para registrar la venta.</p>
+                </div>
+                <a class="workflow-close" href="{% url 'sales' %}" aria-label="Volver a ventas">×</a>
+            </header>
 
-        <div class="mb-3">
-            {{ form.date.label_tag }}
-            {{ form.date }}
-            {{ form.date.errors }}
-        </div>
+            <form method="post" action="{% url 'register_sales' %}" class="workflow-form">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
 
-        <div class="mb-3">
-            {{ form.barcode.label_tag }}
-            <div class="btn-group d-block mb-2" role="group" aria-label="Método de ingreso del código">
-                <button type="button" id="manual-barcode-button" class="btn btn-primary" aria-pressed="true">
-                    Escribir código
-                </button>
-                <button type="button" id="scan-barcode-button" class="btn btn-outline-primary" aria-pressed="false">
-                    Escanear con cámara
-                </button>
-            </div>
-            <div id="manual-barcode-option">
-                {{ form.barcode }}
-                <div class="form-text">Ingresa el código de un producto registrado en el inventario.</div>
-            </div>
-            <div id="camera-barcode-option" hidden>
-                <div id="sales-barcode-reader" class="mb-2" style="width: 500px; max-width: 100%;"></div>
-                <button type="button" id="stop-barcode-scan-button" class="btn btn-secondary">
-                    Cerrar escáner
-                </button>
-            </div>
-            <p id="sales-barcode-scan-status" role="status" aria-live="polite"></p>
-            {{ form.barcode.errors }}
-        </div>
+                <div class="workflow-field">
+                    {{ form.date.label_tag }}
+                    {{ form.date }}
+                    {{ form.date.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.associated_product.label_tag }}
-            {{ form.associated_product }}
-            <div class="form-text">También puedes seleccionar el producto manualmente.</div>
-            {{ form.associated_product.errors }}
-        </div>
+                <div class="workflow-field workflow-field-full">
+                    {{ form.barcode.label_tag }}
+                    <div class="workflow-method-switch" role="group" aria-label="Método de ingreso del código">
+                        <button type="button" id="manual-barcode-button" class="workflow-method-active" aria-pressed="true">
+                            Escribir código
+                        </button>
+                        <button type="button" id="scan-barcode-button" aria-pressed="false">
+                            Escanear con cámara
+                        </button>
+                    </div>
+                    <div id="manual-barcode-option">
+                        {{ form.barcode }}
+                        <div class="workflow-hint">Ingresa el código de un producto registrado en el inventario.</div>
+                    </div>
+                    <div id="camera-barcode-option" class="workflow-camera-option" hidden>
+                        <div id="sales-barcode-reader" class="workflow-reader"></div>
+                        <button type="button" id="stop-barcode-scan-button" class="workflow-button">Cerrar escáner</button>
+                    </div>
+                    <p id="sales-barcode-scan-status" class="workflow-status" role="status" aria-live="polite"></p>
+                    {{ form.barcode.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.quantity_sold.label_tag }}
-            {{ form.quantity_sold }}
-            {{ form.quantity_sold.errors }}
-        </div>
+                <div class="workflow-field">
+                    {{ form.associated_product.label_tag }}
+                    {{ form.associated_product }}
+                    <div class="workflow-hint">También puedes seleccionar el producto manualmente.</div>
+                    {{ form.associated_product.errors }}
+                </div>
 
-        <button type="submit" class="btn btn-primary">Registrar venta</button>
-    </form>
+                <div class="workflow-field">
+                    {{ form.quantity_sold.label_tag }}
+                    {{ form.quantity_sold }}
+                    {{ form.quantity_sold.errors }}
+                </div>
+
+                <footer class="workflow-actions workflow-field-full">
+                    <a href="{% url 'sales' %}" class="workflow-button">Cancelar</a>
+                    <button type="submit" class="workflow-button workflow-button-primary">Registrar venta</button>
+                </footer>
+            </form>
+        </section>
+    </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
@@ -70,11 +82,9 @@
         function showManualBarcodeOption() {
             manualBarcodeOption.hidden = false;
             cameraBarcodeOption.hidden = true;
-            manualBarcodeButton.classList.add("btn-primary");
-            manualBarcodeButton.classList.remove("btn-outline-primary");
+            manualBarcodeButton.classList.add("workflow-method-active");
+            scanBarcodeButton.classList.remove("workflow-method-active");
             manualBarcodeButton.setAttribute("aria-pressed", "true");
-            scanBarcodeButton.classList.remove("btn-primary");
-            scanBarcodeButton.classList.add("btn-outline-primary");
             scanBarcodeButton.setAttribute("aria-pressed", "false");
         }
 
@@ -100,11 +110,9 @@
         scanBarcodeButton.addEventListener("click", function() {
             manualBarcodeOption.hidden = true;
             cameraBarcodeOption.hidden = false;
-            manualBarcodeButton.classList.remove("btn-primary");
-            manualBarcodeButton.classList.add("btn-outline-primary");
+            manualBarcodeButton.classList.remove("workflow-method-active");
+            scanBarcodeButton.classList.add("workflow-method-active");
             manualBarcodeButton.setAttribute("aria-pressed", "false");
-            scanBarcodeButton.classList.add("btn-primary");
-            scanBarcodeButton.classList.remove("btn-outline-primary");
             scanBarcodeButton.setAttribute("aria-pressed", "true");
             scanStatus.textContent = "";
 

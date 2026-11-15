@@ -30,10 +30,24 @@
                     <ul class="notification-list">
                         {% for notification in notifications %}
                             <li class="notification-item notification-{{ notification.level }}">
-                                <a href="{{ notification.url }}">
-                                    <strong>{{ notification.title }}</strong>
-                                    <span>{{ notification.message }}</span>
-                                </a>
+                                <div class="notification-item-content">
+                                    <a href="{{ notification.url }}">
+                                        <strong>{{ notification.title }}</strong>
+                                        <span>{{ notification.message }}</span>
+                                    </a>
+                                    <form method="post" action="{% url 'dismiss_notification' %}" class="notification-dismiss-form">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="notification_id" value="{{ notification.id }}">
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button
+                                            type="submit"
+                                            class="notification-dismiss-button"
+                                            aria-label="Eliminar notificación: {{ notification.title }}"
+                                            title="Eliminar notificación">
+                                            ×
+                                        </button>
+                                    </form>
+                                </div>
                             </li>
                         {% endfor %}
                     </ul>
@@ -64,6 +78,22 @@
                 <a href="{% url 'sales' %}">Ventas</a>
             </li>
         </ul>
+        {% if user.is_authenticated %}
+            <div class="sidebar-account">
+                <span class="sidebar-account-avatar" aria-hidden="true">{{ user.username|slice:":2"|upper }}</span>
+                <div class="sidebar-account-info">
+                    <strong>{{ user.username }}</strong>
+                    <span>{% if user.is_staff %}Administrador{% else %}Usuario{% endif %}</span>
+                </div>
+                <details class="sidebar-account-menu">
+                    <summary aria-label="Opciones de cuenta">•••</summary>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">Cerrar sesión</button>
+                    </form>
+                </details>
+            </div>
+        {% endif %}
     </aside>
 
     <main style="margin-left: 250px; padding: 20px;">

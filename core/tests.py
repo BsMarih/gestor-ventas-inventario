@@ -1,4 +1,5 @@
 from io import BytesIO
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -8,7 +9,16 @@ from .models import Category, Element, InventorySettings, Sale, Type
 from .views import lookup_product_catalogs
 
 
-class CreateElementTypeTests(TestCase):
+class AuthenticatedTestCase(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="test-user",
+            password="Test-Password-9482!",
+        )
+        self.client.force_login(self.user)
+
+
+class CreateElementTypeTests(AuthenticatedTestCase):
     def create_element(self, name, category, type_name):
         return self.client.post(
             reverse("create_element"),
@@ -52,7 +62,7 @@ class CreateElementTypeTests(TestCase):
         self.assertEqual(response.json(), ["Carne"])
 
 
-class ProductScanTests(TestCase):
+class ProductScanTests(AuthenticatedTestCase):
     @patch(
         "core.views.urlopen",
         return_value=BytesIO(
@@ -178,8 +188,9 @@ class ProductScanTests(TestCase):
         self.assertEqual(Element.objects.get(name="Jugo").barcode, "12345678")
 
 
-class InventoryPaginationTests(TestCase):
+class InventoryPaginationTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -228,9 +239,23 @@ class InventoryPaginationTests(TestCase):
 
         self.assertContains(response, "Stock: 0")
 
+    def test_inventory_uses_table_layout_and_existing_product_actions(self):
+        response = self.client.get(reverse("inventory"))
 
-class ProductStateTests(TestCase):
+        self.assertContains(response, "<th scope=\"col\">Producto</th>")
+        self.assertContains(response, "<th scope=\"col\">Precio</th>")
+        self.assertContains(response, "<th scope=\"col\">Stock</th>")
+        self.assertContains(response, "<th scope=\"col\">Estado</th>")
+        self.assertContains(response, "Buscar en inventario...")
+        self.assertContains(response, "Registrar producto")
+        self.assertContains(response, "Escanear código")
+        self.assertContains(response, "Ver detalles")
+        self.assertContains(response, "Editar producto")
+
+
+class ProductStateTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -272,8 +297,9 @@ class ProductStateTests(TestCase):
         self.assertContains(response, "Estado: Disponible")
 
 
-class EditElementTests(TestCase):
+class EditElementTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         self.category = Category.objects.create(name="Comida", slug="comida")
         self.product_type = Type.objects.create(
             name="Carne",
@@ -298,6 +324,9 @@ class EditElementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["form"]["category"].value(), "Comida")
         self.assertEqual(response.context["form"]["type"].value(), "Carne")
+        self.assertContains(response, "workflow-card-product")
+        self.assertContains(response, 'name="associated_min_percentage"')
+        self.assertContains(response, 'name="action" value="delete"')
 
     def test_post_updates_product_and_category_type_relationship(self):
         response = self.client.post(
@@ -352,8 +381,9 @@ class EditElementTests(TestCase):
         self.assertFalse(Element.objects.filter(pk=self.element.pk).exists())
 
 
-class PrioritizedProductPreviewTests(TestCase):
+class PrioritizedProductPreviewTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -365,8 +395,10 @@ class PrioritizedProductPreviewTests(TestCase):
                 Element(
                     name=f"Prioridad {quantity}",
                     slug=f"prioridad-{quantity}",
+                    price=1,
                     quantity=quantity,
                     min_quantity=6,
+                    associated_min_percentage=50,
                     category=category,
                     type=product_type,
                 )
@@ -376,8 +408,10 @@ class PrioritizedProductPreviewTests(TestCase):
                 Element(
                     name="Stock suficiente",
                     slug="stock-suficiente",
+                    price=1,
                     quantity=8,
                     min_quantity=6,
+                    associated_min_percentage=50,
                     category=category,
                     type=product_type,
                 )
@@ -390,6 +424,11 @@ class PrioritizedProductPreviewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         products = response.context["prioritized_products"]
         self.assertEqual(len(products), 5)
+        self.assertEqual(response.context["prioritized_product_count"], 7)
+        self.assertRegex(
+            response.content.decode(),
+            r'<span class="prioritized-count" aria-label="7 productos priorizados">\s*7\s*</span>',
+        )
         self.assertEqual(
             [product.name for product in products],
             [f"Prioridad {quantity}" for quantity in range(5)],
@@ -409,8 +448,9 @@ class PrioritizedProductPreviewTests(TestCase):
         )
 
 
-class PrioritizedListForecastTests(TestCase):
+class PrioritizedListForecastTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -534,9 +574,85 @@ class PrioritizedListForecastTests(TestCase):
         )
         self.assertContains(response, "Sin historial de ventas")
 
+    def test_equal_stock_prioritizes_higher_minimum_quantity_first(self):
+        lower_minimum = Element.objects.create(
+            name="Mínimo menor",
+            slug="minimo-menor",
+            price=10,
+            quantity=5,
+            min_quantity=6,
+            associated_min_percentage=50,
+            category=self.fast_seller.category,
+            type=self.fast_seller.type,
+        )
+        higher_minimum = Element.objects.create(
+            name="Mínimo mayor",
+            slug="minimo-mayor",
+            price=10,
+            quantity=5,
+            min_quantity=10,
+            associated_min_percentage=50,
+            category=self.fast_seller.category,
+            type=self.fast_seller.type,
+        )
 
-class ProductSearchAndDetailSalesTests(TestCase):
+        response = self.client.get(reverse("prioritized_list"))
+
+        products = response.context["elements"]
+        self.assertLess(
+            [product.pk for product in products].index(higher_minimum.pk),
+            [product.pk for product in products].index(lower_minimum.pk),
+        )
+
+    def test_lower_stock_ratio_comes_before_more_frequent_purchase(self):
+        lower_stock = Element.objects.create(
+            name="Menos unidades",
+            slug="menos-unidades",
+            price=10,
+            quantity=13,
+            min_quantity=20,
+            associated_min_percentage=50,
+            category=self.fast_seller.category,
+            type=self.fast_seller.type,
+        )
+        higher_stock = Element.objects.create(
+            name="Más unidades",
+            slug="mas-unidades",
+            price=10,
+            quantity=16,
+            min_quantity=20,
+            associated_min_percentage=50,
+            category=self.fast_seller.category,
+            type=self.fast_seller.type,
+        )
+        today = timezone.localdate()
+        Sale.objects.create(
+            date=today - timezone.timedelta(days=10),
+            element=lower_stock,
+            quantity=1,
+        )
+        for days_ago in (10, 7, 4, 1):
+            Sale.objects.create(
+                date=today - timezone.timedelta(days=days_ago),
+                element=higher_stock,
+                quantity=20,
+            )
+
+        response = self.client.get(reverse("prioritized_list"))
+
+        products = response.context["elements"]
+        lower_stock_index = [product.pk for product in products].index(lower_stock.pk)
+        higher_stock_index = [product.pk for product in products].index(higher_stock.pk)
+        self.assertLess(
+            products[higher_stock_index].average_days_between_sales,
+            products[lower_stock_index].average_days_between_sales,
+        )
+        self.assertLess(lower_stock_index, higher_stock_index)
+
+
+class ProductSearchAndDetailSalesTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Bebidas", slug="bebidas")
         product_type = Type.objects.create(
             name="Jugos",
@@ -647,6 +763,9 @@ class ProductSearchAndDetailSalesTests(TestCase):
         self.assertEqual(recent_sales[9].date, today - timezone.timedelta(days=9))
         self.assertContains(response, "Ventas más recientes")
         self.assertContains(response, "Cantidad vendida")
+        self.assertContains(response, "product-detail-page")
+        self.assertContains(response, "detail-info-grid")
+        self.assertContains(response, "detail-sales-table")
 
     def test_detail_shows_message_when_product_has_no_sales(self):
         response = self.client.get(reverse("detail", args=[self.product.pk]))
@@ -656,8 +775,9 @@ class ProductSearchAndDetailSalesTests(TestCase):
         self.assertContains(response, "Aún no hay ventas registradas para este artículo.")
 
 
-class DashboardSalesMetricsTests(TestCase):
+class DashboardSalesMetricsTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -715,9 +835,20 @@ class DashboardSalesMetricsTests(TestCase):
 
         self.assertEqual(response.context["total_productos"], 0)
 
+    def test_dashboard_prioritized_products_show_stock_progress_and_more_link(self):
+        response = self.client.get(reverse("index"))
 
-class SalesRegistrationTests(TestCase):
+        self.assertContains(response, "Stock bajo")
+        self.assertContains(response, "Requieren tu atención")
+        self.assertContains(response, 'role="progressbar"')
+        self.assertContains(response, 'aria-valuenow="100.0"')
+        self.assertContains(response, "Ver más")
+        self.assertContains(response, reverse("prioritized_list"))
+
+
+class SalesRegistrationTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -916,8 +1047,9 @@ class SalesRegistrationTests(TestCase):
         self.assertFalse(Sale.objects.exists())
 
 
-class NotificationsTests(TestCase):
+class NotificationsTests(AuthenticatedTestCase):
     def setUp(self):
+        super().setUp()
         category = Category.objects.create(name="Comida", slug="comida")
         product_type = Type.objects.create(
             name="Carne",
@@ -927,8 +1059,10 @@ class NotificationsTests(TestCase):
         self.product = Element.objects.create(
             name="Bife",
             slug="bife",
+            price=10,
             quantity=1,
             min_quantity=2,
+            associated_min_percentage=50,
             category=category,
             type=product_type,
         )
@@ -948,6 +1082,37 @@ class NotificationsTests(TestCase):
         self.assertContains(response, "Venta registrada")
         self.assertContains(response, "Bife")
 
+    def test_notification_can_be_dismissed_and_stays_dismissed(self):
+        Sale.objects.create(
+            date=timezone.localdate(),
+            element=self.product,
+            quantity=1,
+        )
+
+        response = self.client.post(
+            reverse("dismiss_notification"),
+            {
+                "notification_id": f"stock-{self.product.pk}",
+                "next": reverse("index"),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["notification_count"], 1)
+        self.assertNotContains(response, "notification-item notification-warning")
+        self.assertContains(response, "notification-item notification-sale")
+
+        response = self.client.get(reverse("index"))
+
+        self.assertEqual(response.context["notification_count"], 1)
+        self.assertNotContains(response, "notification-item notification-warning")
+
+    def test_dismiss_notification_requires_post(self):
+        response = self.client.get(reverse("dismiss_notification"))
+
+        self.assertEqual(response.status_code, 405)
+
     def test_base_shows_empty_state_when_there_are_no_notifications(self):
         self.product.quantity = 5
         self.product.min_quantity = 2
@@ -958,3 +1123,166 @@ class NotificationsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["notification_count"], 0)
         self.assertContains(response, "No tienes notificaciones.")
+
+
+class AccountAuthenticationTests(TestCase):
+    def test_login_page_renders_login_and_account_creation_links(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Iniciar sesión")
+        self.assertContains(response, reverse("register_account"))
+        self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'name="password"')
+
+    def test_account_creation_help_text_is_in_spanish(self):
+        response = self.client.get(reverse("register_account"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Máximo 150 caracteres")
+        self.assertContains(response, "Solo se permiten letras, números")
+        self.assertContains(response, "tu otra información personal")
+        self.assertContains(response, "Debe contener al menos 8 caracteres")
+        self.assertContains(response, "contraseña de uso común")
+        self.assertContains(response, "únicamente por números")
+        self.assertContains(response, "misma contraseña que antes")
+        self.assertNotContains(response, "characters or fewer")
+        self.assertNotContains(response, "Your password")
+
+    def test_account_creation_saves_user_and_redirects_to_login(self):
+        response = self.client.post(
+            reverse("register_account"),
+            {
+                "username": "nueva_cuenta",
+                "email": "nueva@example.com",
+                "password1": "Nube-Verde-9274!",
+                "password2": "Nube-Verde-9274!",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.redirect_chain, [(reverse("login"), 302)])
+        self.assertContains(response, "Tu cuenta fue creada")
+        user = get_user_model().objects.get(username="nueva_cuenta")
+        self.assertEqual(user.email, "nueva@example.com")
+        self.assertTrue(user.check_password("Nube-Verde-9274!"))
+
+    def test_account_creation_rejects_mismatched_passwords(self):
+        response = self.client.post(
+            reverse("register_account"),
+            {
+                "username": "nueva_cuenta",
+                "email": "nueva@example.com",
+                "password1": "Nube-Verde-9274!",
+                "password2": "Otra-Clave-9274!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        self.assertFalse(get_user_model().objects.filter(username="nueva_cuenta").exists())
+
+    def test_login_authenticates_user_and_redirects_to_home(self):
+        user = get_user_model().objects.create_user(
+            username="usuario",
+            password="Nube-Verde-9274!",
+        )
+
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": user.username,
+                "password": "Nube-Verde-9274!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("index"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
+
+    def test_login_honors_safe_next_url(self):
+        user = get_user_model().objects.create_user(
+            username="usuario",
+            password="Nube-Verde-9274!",
+        )
+
+        response = self.client.post(
+            f'{reverse("login")}?next={reverse("inventory")}',
+            {
+                "username": user.username,
+                "password": "Nube-Verde-9274!",
+            },
+        )
+
+        self.assertRedirects(response, reverse("inventory"))
+
+    def test_logout_ends_session_with_post(self):
+        user = get_user_model().objects.create_user(
+            username="usuario",
+            password="Nube-Verde-9274!",
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(reverse("logout"))
+
+        self.assertRedirects(response, reverse("login"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_main_navigation_shows_account_controls_without_auth_links(self):
+        user = get_user_model().objects.create_user(username="usuario")
+        self.client.force_login(user)
+        response = self.client.get(reverse("index"))
+
+        self.assertContains(response, user.username)
+        self.assertContains(response, "Opciones de cuenta")
+        self.assertContains(response, reverse("logout"))
+        self.assertNotContains(response, reverse("login"))
+        self.assertNotContains(response, reverse("register_account"))
+
+    def test_application_pages_redirect_anonymous_visitors_to_login(self):
+        protected_urls = (
+            reverse("index"),
+            reverse("product_search"),
+            reverse("sales"),
+            reverse("inventory"),
+            reverse("product_scan"),
+            reverse("detail", args=[1]),
+            reverse("create_element"),
+            reverse("get_types"),
+            reverse("edit_product", args=[1]),
+            reverse("prioritized_list"),
+            reverse("register_sales"),
+        )
+        for path in protected_urls:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+
+                self.assertRedirects(
+                    response,
+                    f'{reverse("login")}?next={path}',
+                )
+
+    def test_authenticated_user_is_not_prompted_to_log_in_or_register_again(self):
+        user = get_user_model().objects.create_user(username="usuario")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("register_account"))
+
+        self.assertRedirects(response, reverse("index"))
+
+    def test_application_pages_require_login(self):
+        for page_name in ("index", "inventory", "sales", "product_search"):
+            with self.subTest(page=page_name):
+                response = self.client.get(reverse(page_name))
+
+                self.assertRedirects(
+                    response,
+                    f'{reverse("login")}?next={reverse(page_name)}',
+                )
+
+    def test_authenticated_user_is_not_prompted_to_log_in_or_register_again(self):
+        user = get_user_model().objects.create_user(username="usuario")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("register_account"))
+
+        self.assertRedirects(response, reverse("index"))

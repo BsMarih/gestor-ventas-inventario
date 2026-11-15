@@ -4,12 +4,26 @@
 {% block nav_inventory %}active{% endblock %}
 
 {% block content %}
-    <h1>Escáner de productos</h1>
-    <p>Escanea un código EAN o UPC. Después podrás revisar y editar los datos antes de guardar.</p>
-    <div id="reader" class="mb-3" style="width: 500px; max-width: 100%;"></div>
-    <p id="scan-result" role="status" aria-live="polite"></p>
-    <p class="text-muted">El acceso a la cámara requiere HTTPS o abrir el sitio desde localhost.</p>
-    <a href="{% url 'create_element' %}" class="btn btn-secondary">Registrar manualmente</a>
+    <div class="workflow-page">
+        <section class="workflow-card workflow-card-scanner" aria-labelledby="scanner-title">
+            <header class="workflow-header">
+                <div>
+                    <h1 id="scanner-title">Escanear producto</h1>
+                    <p>Escanea un código EAN o UPC para completar los datos del producto.</p>
+                </div>
+                <a class="workflow-close" href="{% url 'inventory' %}" aria-label="Volver al inventario">×</a>
+            </header>
+            <div class="workflow-scanner-frame">
+                <div id="reader" class="workflow-reader"></div>
+            </div>
+            <p id="scan-result" class="workflow-status" role="status" aria-live="polite"></p>
+            <p class="workflow-hint">El acceso a la cámara requiere HTTPS o abrir el sitio desde localhost.</p>
+            <footer class="workflow-actions">
+                <a href="{% url 'inventory' %}" class="workflow-button">Cancelar</a>
+                <a href="{% url 'create_element' %}" class="workflow-button workflow-button-primary">Registrar manualmente</a>
+            </footer>
+        </section>
+    </div>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>

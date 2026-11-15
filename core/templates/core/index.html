@@ -71,20 +71,53 @@
 </div>
 
 <!-- vista previa : lista priorizada -->
-<div class="prioritized-list-section mt-5">
-    <h2 class="section-title"> <a href="{% url 'prioritized_list' %}">Productos necesarios a renovar</a> </h2>
+<section class="prioritized-list-section mt-5" aria-labelledby="prioritized-title">
+    <header class="prioritized-header">
+        <div>
+            <h2 id="prioritized-title">Stock bajo</h2>
+            <p>Requieren tu atención</p>
+        </div>
+        <span class="prioritized-count" aria-label="{{ prioritized_product_count }} productos priorizados">
+            {{ prioritized_product_count }}
+        </span>
+    </header>
 
     {% if prioritized_products %}
         <ul class="prioritized-list">
             {% for product in prioritized_products %}
                 <li class="prioritized-item">
-                    <a href="{% url 'detail' product.id %}">{{ product.name }}</a>
-                    — Stock actual: {{ product.quantity }}
+                    <span class="prioritized-product-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none">
+                            <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+                            <path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12.1V21" />
+                        </svg>
+                    </span>
+                    <div class="prioritized-product-details">
+                        <a class="prioritized-product-name" href="{% url 'detail' product.id %}">
+                            {{ product.name }}
+                        </a>
+                        <progress
+                            class="prioritized-stock-track"
+                            aria-label="Stock de {{ product.name }}"
+                            value="{{ product.stock_percentage }}"
+                            max="100">
+                            {{ product.stock_percentage }}%
+                        </progress>
+                    </div>
+                    <div class="prioritized-stock-amount">
+                        <strong>{{ product.quantity }}</strong>
+                        <span>unidades</span>
+                    </div>
                 </li>
             {% endfor %}
         </ul>
     {% else %}
-        <p>No hay productos que cumplan con el criterio de cantidad mínima.</p>
+        <p class="prioritized-empty">No hay productos que cumplan con el criterio de cantidad mínima.</p>
     {% endif %}
-</div>
+
+    <a class="prioritized-inventory-link" href="{% url 'prioritized_list' %}">
+        Ver más
+        <span aria-hidden="true">›</span>
+    </a>
+</section>
 {% endblock %}

@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <title>Iniciar sesión</title>
+</head>
+<body>
+    <main class="auth-page">
+        <section class="auth-card">
+            <h1>Iniciar sesión</h1>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-success" role="status">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            <form method="post" action="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}" class="auth-form">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+                <div class="auth-field">
+                    {{ form.username.label_tag }}
+                    {{ form.username }}
+                    {{ form.username.errors }}
+                </div>
+                <div class="auth-field">
+                    {{ form.password.label_tag }}
+                    {{ form.password }}
+                    {{ form.password.errors }}
+                </div>
+                <button type="submit" class="btn btn-primary">Iniciar sesión</button>
+            </form>
+            <p class="auth-switch">¿No tienes cuenta? <a href="{% url 'register_account' %}">Crear cuenta</a></p>
+        </section>
+    </main>
+</body>
+</html>

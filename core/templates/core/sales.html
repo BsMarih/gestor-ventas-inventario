@@ -5,25 +5,30 @@
 {% block nav_sales %}active{% endblock %}
 
 {% block content %}
-    <h1>Ventas</h1>
-    <p>Revisa las ventas registradas en el sistema</p>
-    <a href="{% url 'register_sales' %}" class="btn btn-primary">Registrar venta</a>
-
-    <div class="row">
-        {% for sale in sales %}
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Venta #{{ sale.id }}</h5>
-                        <p class="card-text"><strong>Producto:</strong> {{ sale.element.name }}</p>
-                        <p class="card-text"><strong>Cantidad:</strong> {{ sale.quantity }}</p>
-                        <p class="card-text"><strong>Fecha:</strong> {{ sale.date|date:"d/m/Y" }}</p>
-                    </div>
-                </div>
+    <div class="content-page">
+        <header class="page-heading">
+            <div>
+                <h1>Ventas</h1>
+                <p>Revisa las ventas registradas en el sistema.</p>
             </div>
-        {% empty %}
-            <p>No hay ventas registradas.</p>
-        {% endfor %}
+            <a href="{% url 'register_sales' %}" class="page-action page-action-primary">Registrar venta</a>
+        </header>
 
-    
+    <section class="sales-grid" aria-label="Ventas registradas">
+        {% for sale in sales %}
+            <article class="sale-card">
+                <header class="sale-card-header">
+                    <h2>Venta #{{ sale.id }}</h2>
+                    <span>{{ sale.date|date:"d/m/Y" }}</span>
+                </header>
+                <div class="sale-card-body">
+                    <p><span>Producto</span><strong>{{ sale.element.name }}</strong></p>
+                    <p><span>Cantidad</span><strong>{{ sale.quantity }} unidades</strong></p>
+                </div>
+            </article>
+        {% empty %}
+            <p class="page-empty-state">No hay ventas registradas.</p>
+        {% endfor %}
+    </section>
+    </div>
 {% endblock %}

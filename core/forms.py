@@ -1,4 +1,7 @@
 from django import forms
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.models import User
+from django.utils.html import format_html
 from .models import Element, InventorySettings
 
 class CreateElementForm(forms.ModelForm):
@@ -113,6 +116,67 @@ class InventorySettingsForm(forms.ModelForm):
                 "hasta la próxima reposición."
             )
         }
+
+
+class LoginForm(AuthenticationForm):
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "invalid_login": "El usuario o la contraseña no son correctos.",
+        "inactive": "Esta cuenta está inactiva.",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "Nombre de usuario"
+        self.fields["username"].widget.attrs.update(
+            {"class": "form-control", "autocomplete": "username"}
+        )
+        self.fields["password"].label = "Contraseña"
+        self.fields["password"].widget.attrs.update(
+            {"class": "form-control", "autocomplete": "current-password"}
+        )
+
+
+class CreateAccountForm(UserCreationForm):
+    email = forms.EmailField(
+        required=True,
+        label="Correo electrónico",
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "email")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "Nombre de usuario"
+        self.fields["username"].help_text = (
+            "Obligatorio. Máximo 150 caracteres. Solo se permiten letras, "
+            "números y @/./+/-/_."
+        )
+        self.fields["username"].widget.attrs.update(
+            {"class": "form-control", "autocomplete": "username"}
+        )
+        self.fields["email"].widget.attrs["class"] = "form-control"
+        self.fields["password1"].label = "Contraseña"
+        self.fields["password1"].help_text = format_html(
+            "<ul><li>{}</li><li>{}</li><li>{}</li><li>{}</li></ul>",
+            "La contraseña no puede ser demasiado similar a tu otra información personal.",
+            "Debe contener al menos 8 caracteres.",
+            "No puede ser una contraseña de uso común.",
+            "No puede estar formada únicamente por números.",
+        )
+        self.fields["password1"].widget.attrs.update(
+            {"class": "form-control", "autocomplete": "new-password"}
+        )
+        self.fields["password2"].label = "Confirmar contraseña"
+        self.fields["password2"].help_text = (
+            "Introduce la misma contraseña que antes para verificarla."
+        )
+        self.fields["password2"].widget.attrs.update(
+            {"class": "form-control", "autocomplete": "new-password"}
+        )
 
 
 class UserForm(forms.Form):

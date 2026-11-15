@@ -4,7 +4,10 @@ from django.urls import reverse
 from .models import Element, Sale
 
 
-def notification_context(request):
+DISMISSED_NOTIFICATIONS_SESSION_KEY = "dismissed_notifications"
+
+
+def get_notifications():
     notifications = []
 
     products_with_low_stock = Element.objects.filter(
@@ -26,6 +29,7 @@ def notification_context(request):
                 "message": message,
                 "url": reverse("detail", args=[product.pk]),
                 "level": "warning",
+                "id": f"stock-{product.pk}",
             }
         )
 
@@ -41,10 +45,30 @@ def notification_context(request):
                 ),
                 "url": reverse("sales"),
                 "level": "sale",
+                "id": f"sale-{sale.pk}",
             }
         )
-  
 
+    return notifications
+
+
+def notification_context(request):
+    notifications = get_notifications()
+    active_ids = {notification["id"] for notification in notifications}
+    dismissed_ids = set(
+        request.session.get(DISMISSED_NOTIFICATIONS_SESSION_KEY, [])
+    )
+    valid_dismissed_ids = dismissed_ids & active_ids
+    if valid_dismissed_ids != dismissed_ids:
+        request.session[DISMISSED_NOTIFICATIONS_SESSION_KEY] = sorted(
+            valid_dismissed_ids
+        )
+
+    notifications = [
+        notification
+        for notification in notifications
+        if notification["id"] not in valid_dismissed_ids
+    ]
     return {
         "notifications": notifications,
         "notification_count": len(notifications),

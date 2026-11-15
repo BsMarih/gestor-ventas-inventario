@@ -4,20 +4,52 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import models
-from django.shortcuts import get_object_or_404, render,redirect
+from django.http import Http404, HttpResponseRedirect
+from django.shortcuts import get_object_or_404, render, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import ListView
 from django.core.paginator import Paginator
-from .forms import CreateElementForm, InventorySettingsForm, SalesForm
-from django.http import HttpResponseRedirect
+from .forms import CreateAccountForm, CreateElementForm, InventorySettingsForm, SalesForm
 from django.utils import timezone
 from django.utils.text import slugify
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from .notifications import (
+    DISMISSED_NOTIFICATIONS_SESSION_KEY,
+    get_notifications,
+)
 
 from .models import Element,Type,Category,InventorySettings,Sale
 
 logger = logging.getLogger(__name__)
+
+
+@login_required
+@require_POST
+def dismiss_notification(request):
+    notification_id = request.POST.get("notification_id")
+    active_ids = {notification["id"] for notification in get_notifications()}
+    if notification_id not in active_ids:
+        raise Http404("La notificación ya no está disponible.")
+
+    dismissed_ids = set(
+        request.session.get(DISMISSED_NOTIFICATIONS_SESSION_KEY, [])
+    )
+    dismissed_ids.add(notification_id)
+    request.session[DISMISSED_NOTIFICATIONS_SESSION_KEY] = sorted(dismissed_ids)
+
+    next_url = request.POST.get("next")
+    if not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect("index")
+    return redirect(next_url)
+
 
 # APIs públicas a usar, catálogo limitado 
 PRODUCT_CATALOGS = (
@@ -132,6 +164,10 @@ def get_prioritized_elements(replenishment_days=None):
         element.average_days_between_sales = None
         element.days_until_stockout = None
         element.predicted_stockout = False
+        element.stock_percentage = min(
+            element.quantity * 100 / element.min_quantity,
+            100,
+        ) if element.min_quantity else 0
 
         if summary:
             observation_days = max((today - summary["first_sale_date"]).days + 1, 1)
@@ -152,10 +188,15 @@ def get_prioritized_elements(replenishment_days=None):
 
     elements.sort(
         key=lambda element: (
-            element.days_until_stockout is None and element.quantity > 0,
+            element.quantity / element.min_quantity
+            if element.min_quantity
+            else float("inf"),
+            element.average_days_between_sales
+            if element.average_days_between_sales is not None
+            else float("inf"),
             element.days_until_stockout
             if element.days_until_stockout is not None
-            else element.quantity,
+            else float("inf"),
             element.id,
         )
     )
@@ -182,6 +223,7 @@ def product_search_context(request):
     return {"product_query": request.GET.get("q", "").strip()}
 
 
+@login_required
 def product_search(request):
     product_query = request.GET.get("q", "").strip()
     return render(
@@ -195,12 +237,31 @@ def product_search(request):
     )
 
 
+def register_account(request):
+    if request.user.is_authenticated:
+        return redirect("index")
+
+    form = CreateAccountForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(
+            request,
+            "Tu cuenta fue creada. Ya puedes iniciar sesión.",
+        )
+        return redirect("login")
+
+    return render(request, "core/register_account.html", {"form": form})
+
+
 # Create your views here.
+@login_required
 def index(request):
     replenishment_settings = InventorySettings.objects.filter(pk=1).first()
-    prioritized_products = get_prioritized_elements(
+    all_prioritized_products = get_prioritized_elements(
         replenishment_settings.replenishment_days if replenishment_settings else None
-    )[:5]
+    )
+    prioritized_product_count = len(all_prioritized_products)
+    prioritized_products = all_prioritized_products[:5]
     today = timezone.localdate()
     current_month_sales = Sale.objects.filter(date__year=today.year, date__month=today.month)
     monthly_sales = current_month_sales.aggregate(
@@ -214,6 +275,7 @@ def index(request):
         "core/index.html",
         {
             "prioritized_products": prioritized_products,
+            "prioritized_product_count": prioritized_product_count,
             "monthly_sales": monthly_sales,
             "total_productos": total_productos,
             "sales_quantity": sales_quantity,
@@ -223,6 +285,7 @@ def index(request):
     )
 
 # vista que muestra detalles de productos
+@login_required
 def detail(request,pk):
     element = get_object_or_404(Element, pk=pk)
     recent_sales = element.sales.order_by("-date", "-id")[:10]
@@ -232,6 +295,7 @@ def detail(request,pk):
         {"element": element, "recent_sales": recent_sales},
     )
 
+@login_required
 def get_types(request):
     category_name = request.GET.get('category')
     try:
@@ -243,10 +307,12 @@ def get_types(request):
     return JsonResponse(types, safe=False)
 
 
+@login_required
 def product_scan(request):
     return render(request, "core/product_scan.html")
 
 
+@login_required
 def inventory(request):
     elements = Element.objects.all().order_by('-id')
 
@@ -265,6 +331,7 @@ def inventory(request):
     )
 
 # agregar productos al inventario
+@login_required
 def create_element(request):
     if request.method == "POST":
         form = CreateElementForm(request.POST)
@@ -315,6 +382,7 @@ def create_element(request):
     return render(request,"core/create_product.html",context)
 
 # edita productos ya existentes
+@login_required
 def edit_products(request, element_id):
     element = get_object_or_404(Element, id=element_id)
 
@@ -374,6 +442,7 @@ def edit_products(request, element_id):
     )
 
 # funcionalidad corazón: lista priorizada
+@login_required
 def prioritized_list(request):
     settings = InventorySettings.objects.filter(pk=1).first()
     settings_form = InventorySettingsForm(instance=settings)
@@ -402,6 +471,7 @@ def prioritized_list(request):
     )
 
 # funcionalidad 2: registro de ventas
+@login_required
 def sales(request):
     registered_sales = Sale.objects.select_related("element").order_by("-date", "-id")
     sales_quantity = registered_sales.aggregate(total_quantity=models.Sum("quantity"))["total_quantity"] or 0
@@ -418,6 +488,7 @@ def sales(request):
         },
     )
 
+@login_required
 def register_sales(request):
     form = SalesForm(request.POST or None)
     if request.method == "POST":
@@ -435,6 +506,7 @@ def register_sales(request):
 
     return render(request, "core/register_sales.html", {"form": form})
 
+@login_required
 def frequency_analysis(request):
     
     sales_data = (

@@ -1,43 +1,90 @@
 {% extends "core/base.html" %}
 {% load static %}
 
-{% block title %}Detalle del Elemento{% endblock %}
+{% block title %}Detalle de producto{% endblock %}
 {% block nav_inventory %}active{% endblock %}
 
 {% block content %}
-    <h1>{{ element.title }}</h1>
-    <p><strong>Nombre de artículo:</strong> {{ element.name }}</p>
-    <p><strong>Descripción:</strong> {{ element.description }}</p>
-    {% if element.barcode %}<p><strong>Código de barras:</strong> {{ element.barcode }}</p>{% endif %}
-    <p><strong>Precio:</strong> ${{ element.price }}</p>
-    <p><strong>Cantidad en Inventario:</strong> {{ element.quantity }}</p>
-    <p><strong>Link del producto:</strong> <a href="{{ element.prod_website }}" target="_blank">{{ element.prod_website }}</a></p>
-
-    <section class="mt-4" aria-labelledby="recent-sales-heading">
-        <h2 id="recent-sales-heading">Ventas más recientes</h2>
-        {% if recent_sales %}
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Fecha</th>
-                            <th scope="col">Cantidad vendida</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for sale in recent_sales %}
-                            <tr>
-                                <td>{{ sale.date|date:"d/m/Y" }}</td>
-                                <td>{{ sale.quantity }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <div class="content-page product-detail-page">
+        <header class="page-heading">
+            <div>
+                <h1>{{ element.name }}</h1>
+                <p>Información del producto y actividad reciente.</p>
             </div>
-        {% else %}
-            <p>Aún no hay ventas registradas para este artículo.</p>
-        {% endif %}
-    </section>
+            <div class="page-actions">
+                <a href="{% url 'inventory' %}" class="page-action">Volver al Inventario</a>
+            </div>
+        </header>
 
-    <a href="{% url 'inventory' %}">Volver al Inventario</a>
+        <section class="detail-overview" aria-labelledby="product-information-heading">
+            <header class="detail-card-header">
+                <h2 id="product-information-heading">Información básica</h2>
+            </header>
+            <dl class="detail-info-grid">
+                <div class="detail-info-item">
+                    <dt>Nombre de artículo</dt>
+                    <dd>{{ element.name }}</dd>
+                </div>
+                <div class="detail-info-item detail-info-item-full">
+                    <dt>Descripción</dt>
+                    <dd>{{ element.description|default:"Sin descripción" }}</dd>
+                </div>
+                {% if element.barcode %}
+                    <div class="detail-info-item">
+                        <dt>Código de barras</dt>
+                        <dd>{{ element.barcode }}</dd>
+                    </div>
+                {% endif %}
+                <div class="detail-info-item">
+                    <dt>Precio</dt>
+                    <dd>${{ element.price }}</dd>
+                </div>
+                <div class="detail-info-item">
+                    <dt>Cantidad en inventario</dt>
+                    <dd>{{ element.quantity }}</dd>
+                </div>
+                <div class="detail-info-item detail-info-item-full">
+                    <dt>Link del producto</dt>
+                    <dd>
+                        {% if element.prod_website %}
+                            <a href="{{ element.prod_website }}" target="_blank" rel="noopener noreferrer">{{ element.prod_website }}</a>
+                        {% else %}
+                            <span class="detail-info-muted">Sin link registrado</span>
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="detail-sales-panel" aria-labelledby="recent-sales-heading">
+            <header class="detail-card-header">
+                <div>
+                    <h2 id="recent-sales-heading">Ventas más recientes</h2>
+                    <p>Últimos movimientos registrados para este artículo.</p>
+                </div>
+            </header>
+            {% if recent_sales %}
+                <div class="table-responsive">
+                    <table class="detail-sales-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha</th>
+                                <th scope="col">Cantidad vendida</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                                <tr>
+                                    <td>{{ sale.date|date:"d/m/Y" }}</td>
+                                    <td>{{ sale.quantity }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="detail-sales-empty">Aún no hay ventas registradas para este artículo.</p>
+            {% endif %}
+        </section>
+    </div>
 {% endblock %}

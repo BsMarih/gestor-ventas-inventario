@@ -1,104 +1,127 @@
 {% extends 'core/base.html' %}
 {% load static %}
 
-{% block title %}Editar o borrar producto{% endblock %}
+{% block title %}Editar producto{% endblock %}
 {% block nav_inventory %}active{% endblock %}
 
 {% block content %}
-    <h1>Editar producto</h1>
-    <form method="post" action="{% url 'edit_product' product.id %}">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
+    <div class="workflow-page">
+        <section class="workflow-card workflow-card-product" aria-labelledby="edit-product-title">
+            <header class="workflow-header">
+                <div>
+                    <h1 id="edit-product-title">Editar producto</h1>
+                    <p>Actualiza los datos de este producto.</p>
+                </div>
+                <a class="workflow-close" href="{% url 'inventory' %}" aria-label="Volver al inventario">×</a>
+            </header>
 
-        <div class="mb-3">
-            {{ form.name.label_tag }}
-            {{ form.name }}
-            {{ form.name.errors }}
-        </div>
+            <form method="post" action="{% url 'edit_product' product.id %}" class="workflow-form">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
 
-        <div class="mb-3">
-            {{ form.description.label_tag }}
-            {{ form.description }}
-            {{ form.description.errors }}
-        </div>
+                <div class="workflow-field workflow-field-full">
+                    {{ form.name.label_tag }}
+                    {{ form.name }}
+                    {{ form.name.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.barcode.label_tag }}
-            {{ form.barcode }}
-            {{ form.barcode.errors }}
-        </div>
+                <div class="workflow-field workflow-field-full">
+                    {{ form.description.label_tag }}
+                    {{ form.description }}
+                    {{ form.description.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.price.label_tag }}
-            {{ form.price }}
-            {{ form.price.errors }}
-        </div>
+                <div class="workflow-field">
+                    {{ form.price.label_tag }}
+                    {{ form.price }}
+                    {{ form.price.errors }}
+                </div>
 
-        <div class="mb-3">
-            <label for="id_category">Categoría</label>
-            <input
-                type="text"
-                id="id_category"
-                name="category"
-                list="categories"
-                class="form-control"
-                value="{{ form.category.value|default_if_none:'' }}">
-            {{ form.category.errors }}
+                <div class="workflow-field">
+                    {{ form.quantity.label_tag }}
+                    {{ form.quantity }}
+                    {{ form.quantity.errors }}
+                </div>
 
-            <datalist id="categories">
-                {% for category in categories %}
-                    <option value="{{ category.name }}">
-                {% endfor %}
-            </datalist>
-        </div>
+                <div class="workflow-field">
+                    {{ form.min_quantity.label_tag }}
+                    {{ form.min_quantity }}
+                    {{ form.min_quantity.errors }}
+                </div>
 
-        <div class="mb-3">
-            <label for="type-select">Tipos existentes</label>
-            <select id="type-select" class="form-control">
-                <option value="">Seleccione un tipo</option>
-            </select>
+                <div class="workflow-field">
+                    {{ form.barcode.label_tag }}
+                    {{ form.barcode }}
+                    {{ form.barcode.errors }}
+                </div>
 
-            <label for="type-input" class="mt-2">Tipo</label>
-            <input
-                type="text"
-                id="type-input"
-                name="type"
-                class="form-control"
-                value="{{ form.type.value|default_if_none:'' }}">
-            {{ form.type.errors }}
-        </div>
+                <div class="workflow-field">
+                    {{ form.associated_min_percentage.label_tag }}
+                    {{ form.associated_min_percentage }}
+                    {{ form.associated_min_percentage.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.quantity.label_tag }}
-            {{ form.quantity }}
-            {{ form.quantity.errors }}
-        </div>
+                <div class="workflow-field">
+                    {{ form.prod_website.label_tag }}
+                    {{ form.prod_website }}
+                    {{ form.prod_website.errors }}
+                </div>
 
-        <div class="mb-3">
-            {{ form.min_quantity.label_tag }}
-            {{ form.min_quantity }}
-            {{ form.min_quantity.errors }}
-        </div>
+                <div class="workflow-field">
+                    <label for="id_category">Categoría</label>
+                    <input
+                        type="text"
+                        id="id_category"
+                        name="category"
+                        list="categories"
+                        value="{{ form.category.value|default_if_none:'' }}">
+                    {{ form.category.errors }}
+                    <datalist id="categories">
+                        {% for category in categories %}
+                            <option value="{{ category.name }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
 
-        <div class="mb-3">
-            {{ form.prod_website.label_tag }}
-            {{ form.prod_website }}
-            {{ form.prod_website.errors }}
-        </div>
+                <div class="workflow-field">
+                    <label for="type-select">Tipos existentes</label>
+                    <select id="type-select">
+                        <option value="">Seleccione un tipo</option>
+                    </select>
+                </div>
 
-        <button type="submit" class="btn btn-primary">Guardar cambios</button>
-        <a href="{% url 'inventory' %}" class="btn btn-secondary">Cancelar</a>
-    </form>
+                <div class="workflow-field workflow-field-full">
+                    <label for="type-input">O escriba un nuevo tipo</label>
+                    <input
+                        type="text"
+                        id="type-input"
+                        name="type"
+                        value="{{ form.type.value|default_if_none:'' }}">
+                    {{ form.type.errors }}
+                </div>
 
-    <hr class="my-4">
-    <form
-        method="post"
-        action="{% url 'edit_product' product.id %}"
-        onsubmit="return confirm('¿Seguro que deseas borrar este producto? Esta acción no se puede deshacer.');">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="delete">
-        <button type="submit" class="btn btn-danger">Borrar producto</button>
-    </form>
+                <footer class="workflow-actions workflow-field-full">
+                    <a href="{% url 'inventory' %}" class="workflow-button">Cancelar</a>
+                    <button type="submit" class="workflow-button workflow-button-primary">Guardar cambios</button>
+                </footer>
+            </form>
+
+            <section class="workflow-danger-zone" aria-labelledby="delete-product-title">
+                <div>
+                    <h2 id="delete-product-title">Eliminar producto</h2>
+                    <p>Esta acción no se puede deshacer.</p>
+                </div>
+                <form
+                    method="post"
+                    action="{% url 'edit_product' product.id %}"
+                    onsubmit="return confirm('¿Seguro que deseas borrar este producto? Esta acción no se puede deshacer.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <button type="submit" class="workflow-button workflow-button-danger">Borrar producto</button>
+                </form>
+            </section>
+        </section>
+    </div>
 
     <script>
         const getTypesUrl = "{% url 'get_types' %}";

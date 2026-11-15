@@ -5,68 +5,136 @@
 {% block nav_inventory %}active{% endblock %}
 
 {% block content %}
-    <h1>Inventario</h1>
-    <p>Gestiona existencias, precios y disponibilidad.</p>
-    <a href="{% url 'create_element' %}" class="btn btn-success mb-3">Registra un nuevo producto</a>
-    <a href="{% url 'product_scan' %}" class="btn btn-outline-primary mb-3">Escanear código de barras</a>
-
-    {% for e in elements %}
-        <div class="card mb-3">
-            <li class="list-group-item">
-                <p class="card-text"><h5 class="card-title"><a href="{% url 'detail' e.id %}">{{ e.name }}</a></h5></p>
-            </li>
-
-            <div class="card-body">
-                <p class="card-text">Precio: ${{ e.price }}</p>
-                <p class="card-text">Stock: {{ e.quantity }}</p>
-                <p class="card-text">Estado: {{ e.state }}</p>
-                <a href="{% url 'edit_product' e.id %}" class="btn btn-primary">Editar producto</a>
+    <div class="content-page">
+        <header class="page-heading">
+            <div>
+                <h1>Inventario</h1>
+                <p>Gestiona existencias, precios y disponibilidad.</p>
             </div>
-        </div>
-    {% empty %}
-        <p>No hay productos registrados.</p>
-    {% endfor %}
-    
+        </header>
 
-    {% if elements.paginator.num_pages > 1 %}
-    <nav aria-label="Paginación del inventario" class="mt-4">
-        <ul class="pagination justify-content-center">
-            {% if elements.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ elements.previous_page_number }}" aria-label="Anterior">
-                        Anterior
-                    </a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Anterior</span>
-                </li>
-            {% endif %}
+        <section class="inventory-panel" aria-label="Productos del inventario">
+            <div class="inventory-toolbar">
+                <form method="get" action="{% url 'product_search' %}" class="inventory-search">
+                    <label class="visually-hidden" for="inventory-search">Buscar en inventario</label>
+                    <input
+                        id="inventory-search"
+                        type="search"
+                        name="q"
+                        placeholder="Buscar en inventario..."
+                        aria-label="Buscar en inventario">
+                    <button type="submit" aria-label="Buscar">⌕</button>
+                </form>
+                <div class="page-actions">
+                    <a href="{% url 'create_element' %}" class="page-action page-action-primary">Registrar producto</a>
+                    <a href="{% url 'product_scan' %}" class="page-action">Escanear código</a>
+                </div>
+            </div>
 
-            {% for num in elements.paginator.page_range %}
-                {% if elements.number == num %}
-                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                {% elif num == 1 or num == elements.paginator.num_pages or num > elements.number|add:'-3' and num < elements.number|add:'3' %}
-                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
-                {% elif num == elements.number|add:'-3' or num == elements.number|add:'3' %}
-                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+            <div class="table-responsive">
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Producto</th>
+                            <th scope="col">Precio</th>
+                            <th scope="col">Stock</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in elements %}
+                            <tr>
+                                <td>
+                                    <div class="inventory-table-product">
+                                        <span class="inventory-table-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none">
+                                                <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+                                                <path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12.1V21" />
+                                            </svg>
+                                        </span>
+                                        <a href="{% url 'detail' e.id %}">{{ e.name }}</a>
+                                    </div>
+                                </td>
+                                <td class="inventory-table-price">${{ e.price }}</td>
+                                <td class="inventory-table-stock" aria-label="Stock: {{ e.quantity }}">
+                                    {{ e.quantity }} uds.
+                                </td>
+                                <td>
+                                    <span
+                                        class="inventory-status{% if e.quantity == 0 %} inventory-status-empty{% elif e.quantity < e.min_quantity %} inventory-status-low{% endif %}"
+                                        aria-label="Estado: {{ e.state }}">
+                                        {% if e.quantity == 0 %}
+                                            Agotado
+                                        {% elif e.quantity < e.min_quantity %}
+                                            Stock bajo
+                                        {% elif e.state == "Disponible - Stock alto" %}
+                                            Stock alto
+                                        {% else %}
+                                            Disponible
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="inventory-table-actions">
+                                    <details class="inventory-row-menu">
+                                        <summary aria-label="Acciones para {{ e.name }}">•••</summary>
+                                        <div class="inventory-row-menu-options">
+                                            <a href="{% url 'detail' e.id %}">Ver detalles</a>
+                                            <a href="{% url 'edit_product' e.id %}">Editar producto</a>
+                                        </div>
+                                    </details>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5"><p class="page-empty-state">No hay productos registrados.</p></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        {% if elements.paginator.num_pages > 1 %}
+        <nav aria-label="Paginación del inventario" class="inventory-pagination">
+            <ul class="pagination justify-content-center">
+                {% if elements.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ elements.previous_page_number }}" aria-label="Anterior">
+                            Anterior
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Anterior</span>
+                    </li>
                 {% endif %}
-            {% endfor %}
 
+                {% for num in elements.paginator.page_range %}
+                    {% if elements.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num == 1 or num == elements.paginator.num_pages or num > elements.number|add:'-3' and num < elements.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% elif num == elements.number|add:'-3' or num == elements.number|add:'3' %}
+                        <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                    {% endif %}
+                {% endfor %}
 
-            {% if elements.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ elements.next_page_number }}" aria-label="Siguiente">
-                        Siguiente
-                    </a>
-                </li>
-            {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">Siguiente</span>
-                </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
+                {% if elements.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ elements.next_page_number }}" aria-label="Siguiente">
+                            Siguiente
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Siguiente</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
 
 {% endblock %}

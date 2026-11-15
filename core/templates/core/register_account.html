@@ -1,0 +1,35 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/css/bootstrap.min.css' %}">
+    <title>Crear cuenta</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <main class="auth-page">
+        <section class="auth-card">
+            <h1>Crear cuenta</h1>
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+                {% for field in form %}
+                    <div class="auth-field">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Crear cuenta</button>
+            </form>
+            <p class="auth-switch">¿Ya tienes cuenta? <a href="{% url 'login' %}">Iniciar sesión</a></p>
+        </section>
+    </main>
+</body>
+</html>
