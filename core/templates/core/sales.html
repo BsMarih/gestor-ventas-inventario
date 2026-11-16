@@ -18,7 +18,7 @@
         {% for sale in sales %}
             <article class="sale-card">
                 <header class="sale-card-header">
-                    <h2>Venta #{{ sale.id }}</h2>
+                    <h2>Venta #{{ sale.display_number }}</h2>
                     <span>{{ sale.date|date:"d/m/Y" }}</span>
                 </header>
                 <div class="sale-card-body">

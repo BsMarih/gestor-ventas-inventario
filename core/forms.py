@@ -32,6 +32,16 @@ class CreateElementForm(forms.ModelForm):
             'prod_website',
         ]
 
+    def clean_barcode(self):
+        barcode = self.cleaned_data.get("barcode", "").strip()
+        if barcode and Element.objects.filter(barcode=barcode).exclude(
+            pk=self.instance.pk
+        ).exists():
+            raise forms.ValidationError(
+                "Ya existe un producto registrado con este código de barras."
+            )
+        return barcode
+
 class SalesForm(forms.Form):
     date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date"}),

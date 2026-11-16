@@ -16,7 +16,12 @@
             </header>
 
             {% if scan_message %}
-                <div class="alert alert-info" role="status">{{ scan_message }} Revisa o completa los datos antes de guardar.</div>
+                <div class="alert {% if existing_product %}alert-warning{% else %}alert-info{% endif %}" role="status">
+                    {{ scan_message }}
+                    {% if existing_product %}
+                        <a href="{% url 'detail' existing_product.pk %}">Ver producto existente</a>
+                    {% endif %}
+                </div>
             {% endif %}
 
             <form method="post" action="{% url 'create_element' %}" class="workflow-form">

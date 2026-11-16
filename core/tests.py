@@ -169,6 +169,74 @@ class ProductScanTests(AuthenticatedTestCase):
         self.assertContains(response, "Revisa o completa los datos antes de guardar")
         lookup.assert_called_once_with("12345678")
 
+    @patch("core.views.lookup_product_catalogs")
+    def test_scanning_existing_barcode_shows_product_instead_of_catalog_lookup(self, lookup):
+        category = Category.objects.create(name="Bebidas", slug="bebidas")
+        product_type = Type.objects.create(
+            name="Jugos",
+            slug="bebidas-jugos",
+            category=category,
+        )
+        product = Element.objects.create(
+            name="Jugo existente",
+            slug="jugo-existente",
+            barcode="12345678",
+            price=25,
+            quantity=8,
+            min_quantity=2,
+            associated_min_percentage=50,
+            category=category,
+            type=product_type,
+        )
+
+        response = self.client.get(
+            reverse("create_element"),
+            {"barcode": "12345678"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Este código de barras ya existe")
+        self.assertContains(response, "Jugo existente")
+        self.assertContains(response, reverse("detail", args=[product.pk]))
+        lookup.assert_not_called()
+
+    def test_duplicate_barcode_cannot_be_saved_as_new_product(self):
+        category = Category.objects.create(name="Bebidas", slug="bebidas")
+        product_type = Type.objects.create(
+            name="Jugos",
+            slug="bebidas-jugos",
+            category=category,
+        )
+        Element.objects.create(
+            name="Jugo existente",
+            slug="jugo-existente",
+            barcode="12345678",
+            price=25,
+            quantity=8,
+            min_quantity=2,
+            associated_min_percentage=50,
+            category=category,
+            type=product_type,
+        )
+
+        response = self.client.post(
+            reverse("create_element"),
+            {
+                "name": "Otro jugo",
+                "barcode": "12345678",
+                "category": "Bebidas",
+                "type": "Jugos",
+                "price": "25",
+                "quantity": "8",
+                "min_quantity": "2",
+                "associated_min_percentage": "50",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("barcode", response.context["form"].errors)
+        self.assertEqual(Element.objects.filter(barcode="12345678").count(), 1)
+
     def test_scanned_barcode_is_saved_with_product(self):
         response = self.client.post(
             reverse("create_element"),
@@ -818,6 +886,37 @@ class DashboardSalesMetricsTests(AuthenticatedTestCase):
         self.assertEqual(response.context["sales_quantity"], 8)
         self.assertEqual(response.context["total_productos"], 1)
 
+    def test_dashboard_estimates_monthly_revenue_from_three_completed_months(self):
+        today = timezone.datetime(2026, 11, 16).date()
+        with patch("core.views.timezone.localdate", return_value=today):
+            Sale.objects.create(
+                date="2026-08-10",
+                element=self.active_element,
+                quantity=3,
+            )
+            Sale.objects.create(
+                date="2026-09-10",
+                element=self.active_element,
+                quantity=6,
+            )
+            Sale.objects.create(
+                date="2026-10-10",
+                element=self.active_element,
+                quantity=9,
+            )
+            Sale.objects.create(
+                date="2026-12-10",
+                element=self.active_element,
+                quantity=100,
+            )
+
+            response = self.client.get(reverse("index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["estimated_monthly_revenue"], 59)
+        self.assertContains(response, "Ingresos estimados")
+        self.assertContains(response, "no descuenta costos")
+
     def test_dashboard_metrics_are_zero_when_there_are_no_sales_or_products(self):
         Element.objects.all().delete()
 
@@ -825,6 +924,7 @@ class DashboardSalesMetricsTests(AuthenticatedTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["monthly_sales"], 0)
+        self.assertEqual(response.context["estimated_monthly_revenue"], 0)
         self.assertEqual(response.context["sales_quantity"], 0)
         self.assertEqual(response.context["total_productos"], 0)
 
@@ -1031,6 +1131,32 @@ class SalesRegistrationTests(AuthenticatedTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Bife")
         self.assertContains(response, "2")
+
+    def test_sales_page_shows_newest_first_but_numbers_oldest_as_one(self):
+        first_sale = Sale.objects.create(
+            date="2026-10-07",
+            element=self.element,
+            quantity=1,
+        )
+        later_sale = Sale.objects.create(
+            date="2026-11-01",
+            element=self.element,
+            quantity=1,
+        )
+
+        response = self.client.get(reverse("sales"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [sale.pk for sale in response.context["sales"]],
+            [later_sale.pk, first_sale.pk],
+        )
+        self.assertEqual(
+            [sale.display_number for sale in response.context["sales"]],
+            [2, 1],
+        )
+        self.assertContains(response, "<h2>Venta #1</h2>")
+        self.assertContains(response, "<h2>Venta #2</h2>")
 
     def test_invalid_sale_does_not_create_record(self):
         response = self.client.post(

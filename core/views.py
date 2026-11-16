@@ -267,6 +267,25 @@ def index(request):
     monthly_sales = current_month_sales.aggregate(
         total=models.Sum(models.F("quantity") * models.F("element__price"))
     )["total"] or 0
+    current_month_start = today.replace(day=1)
+    history_start = current_month_start
+    for _ in range(3):
+        history_start = (history_start - timezone.timedelta(days=1)).replace(day=1)
+    historical_revenue = Sale.objects.filter(
+        date__gte=history_start,
+        date__lt=current_month_start,
+    ).aggregate(
+        total=models.Sum(models.F("quantity") * models.F("element__price"))
+    )["total"] or 0
+    history_days = (current_month_start - history_start).days
+    if today.month == 12:
+        next_month_start = current_month_start.replace(year=today.year + 1, month=1)
+    else:
+        next_month_start = current_month_start.replace(month=today.month + 1)
+    current_month_days = (next_month_start - current_month_start).days
+    estimated_monthly_revenue = round(
+        historical_revenue * current_month_days / history_days
+    )
     sales_quantity = Sale.objects.aggregate(total=models.Sum("quantity"))["total"] or 0
     total_productos = Element.objects.filter(quantity__gt=0).count()
 
@@ -277,6 +296,7 @@ def index(request):
             "prioritized_products": prioritized_products,
             "prioritized_product_count": prioritized_product_count,
             "monthly_sales": monthly_sales,
+            "estimated_monthly_revenue": estimated_monthly_revenue,
             "total_productos": total_productos,
             "sales_quantity": sales_quantity,
             "product_search_enabled": True,
@@ -362,13 +382,23 @@ def create_element(request):
     else:
         initial = {}
         scan_message = None
+        existing_product = None
         barcode = request.GET.get("barcode", "").strip()
         if barcode:
             initial["barcode"] = barcode
-            product_data, scan_message = lookup_product_catalogs(barcode)
-            if product_data:
-                initial.update(product_data)
-                scan_message = "Producto encontrado. Revisa o completa los datos antes de guardar."
+            existing_product = Element.objects.filter(barcode=barcode).order_by("pk").first()
+            if existing_product:
+                scan_message = (
+                    f"Este código de barras ya existe para el producto "
+                    f"{existing_product.name}."
+                )
+            else:
+                product_data, scan_message = lookup_product_catalogs(barcode)
+                if product_data:
+                    initial.update(product_data)
+                    scan_message = (
+                        "Producto encontrado. Revisa o completa los datos antes de guardar."
+                    )
 
         form = CreateElementForm(initial=initial)
 
@@ -377,6 +407,7 @@ def create_element(request):
         "categories": Category.objects.all(),
         "types": Type.objects.all(),
         "scan_message": scan_message if request.method == "GET" else None,
+        "existing_product": existing_product if request.method == "GET" else None,
     }
 
     return render(request,"core/create_product.html",context)
@@ -473,14 +504,19 @@ def prioritized_list(request):
 # funcionalidad 2: registro de ventas
 @login_required
 def sales(request):
-    registered_sales = Sale.objects.select_related("element").order_by("-date", "-id")
+    registered_sales = Sale.objects.select_related("element").order_by("date", "id")
+    sales_by_date = list(registered_sales)
+    for sale_number, sale in enumerate(sales_by_date, start=1):
+        sale.display_number = sale_number
+    sales_by_date.reverse()
+
     sales_quantity = registered_sales.aggregate(total_quantity=models.Sum("quantity"))["total_quantity"] or 0
     monthly_sales = registered_sales.annotate(month=models.functions.TruncMonth("date")).values("month").annotate(total_quantity=models.Sum("quantity")).order_by("month")
     return render(
         request,
         "core/sales.html",
         {
-            "sales": registered_sales,
+            "sales": sales_by_date,
             "sales_quantity": sales_quantity,
             "monthly_sales": monthly_sales,
             "product_search_enabled": True,
