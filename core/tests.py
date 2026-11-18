@@ -1,3 +1,4 @@
+from datetime import timedelta
 from io import BytesIO
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -606,6 +607,9 @@ class PrioritizedListForecastTests(AuthenticatedTestCase):
         self.assertTrue(products[0].predicted_stockout)
         self.assertAlmostEqual(products[0].average_daily_sales, 40 / 11)
         self.assertAlmostEqual(products[0].days_until_stockout, 5.5)
+        self.assertContains(response, "Cada 6 días")
+        self.assertContains(response, "Stock estimado para")
+        self.assertContains(response, "<strong>6 días</strong>")
         self.assertContains(response, "Podría agotarse antes de la próxima reposición.")
 
     def test_dashboard_preview_uses_the_configured_forecast(self):
@@ -1207,6 +1211,41 @@ class NotificationsTests(AuthenticatedTestCase):
         self.assertContains(response, "Stock bajo")
         self.assertContains(response, "Venta registrada")
         self.assertContains(response, "Bife")
+
+    def test_new_sale_that_exhausts_product_appears_first_in_notifications(self):
+        previous_sale = Sale.objects.create(
+            date=timezone.localdate(),
+            element=self.product,
+            quantity=1,
+        )
+        Sale.objects.filter(pk=previous_sale.pk).update(
+            created_at=timezone.now() - timedelta(days=1)
+        )
+
+        response = self.client.post(
+            reverse("register_sales"),
+            {
+                "date": timezone.localdate().isoformat(),
+                "associated_product": self.product.pk,
+                "quantity_sold": 1,
+            },
+        )
+
+        self.assertRedirects(response, reverse("sales"))
+        response = self.client.get(reverse("index"))
+        notification_ids = [
+            notification["id"] for notification in response.context["notifications"]
+        ]
+
+        self.assertEqual(
+            notification_ids,
+            [
+                f"stock-{self.product.pk}",
+                f"sale-{Sale.objects.latest('pk').pk}",
+                f"sale-{previous_sale.pk}",
+            ],
+        )
+        self.assertEqual(Element.objects.get(pk=self.product.pk).quantity, 0)
 
     def test_notification_can_be_dismissed_and_stays_dismissed(self):
         Sale.objects.create(

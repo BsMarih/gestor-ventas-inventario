@@ -30,10 +30,13 @@ def get_notifications():
                 "url": reverse("detail", args=[product.pk]),
                 "level": "warning",
                 "id": f"stock-{product.pk}",
+                "occurred_at": product.updated,
             }
         )
 
-    recent_sales = Sale.objects.select_related("element").order_by("-date", "-pk")[:5]
+    recent_sales = Sale.objects.select_related("element").order_by(
+        "-created_at", "-pk"
+    )[:5]
     for sale in recent_sales:
         unit_label = "unidad" if sale.quantity == 1 else "unidades"
         notifications.append(
@@ -46,10 +49,15 @@ def get_notifications():
                 "url": reverse("sales"),
                 "level": "sale",
                 "id": f"sale-{sale.pk}",
+                "occurred_at": sale.created_at,
             }
         )
 
-    return notifications
+    return sorted(
+        notifications,
+        key=lambda notification: notification["occurred_at"],
+        reverse=True,
+    )
 
 
 def notification_context(request):

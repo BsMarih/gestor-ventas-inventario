@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 # Create your models here.
 class Category(models.Model):
@@ -57,6 +58,7 @@ class Element(models.Model):
 
 class Sale(models.Model):
     date = models.DateField()
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
     element = models.ForeignKey(Element, on_delete=models.CASCADE, related_name="sales")
     quantity = models.PositiveIntegerField()
     repositiondays = models.PositiveIntegerField(

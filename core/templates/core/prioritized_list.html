@@ -52,12 +52,12 @@
                     <div class="forecast-card-body">
                         <p><span>Cantidad mínima</span><strong>{{ e.min_quantity }}</strong></p>
                         {% if e.has_sales_history %}
-                            <p><span>Frecuencia promedio de compra</span><strong>Cada {{ e.average_days_between_sales|floatformat:1 }} días</strong></p>
+                            <p><span>Frecuencia promedio de compra</span><strong>Cada {{ e.average_days_between_sales|floatformat:0 }} días</strong></p>
                             <p><span>Consumo promedio</span><strong>{{ e.average_daily_sales|floatformat:2 }} unidades al día</strong></p>
                             {% if e.has_sales_rate %}
                                 <p class="card-text">
                                     <span>Stock estimado para</span>
-                                    <strong>{{ e.days_until_stockout|floatformat:1 }} días</strong>
+                                    <strong>{{ e.days_until_stockout|floatformat:0 }} días</strong>
                                 </p>
                                 {% if e.predicted_stockout %}
                                     <p class="forecast-warning">
